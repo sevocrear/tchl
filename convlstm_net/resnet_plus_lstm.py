@@ -1,7 +1,7 @@
 from torchvision.models import resnet
 import torch.nn.functional as F
 from torch.utils import model_zoo
-from convlstm_net.convlstm import *
+from convlstm import *
 
 
 class ConvLSTMHead(nn.Module):
@@ -235,7 +235,7 @@ def resnet18rnn(finetune=True, load=True, bn=True, **kwargs):
     model = ResNetPlusLSTM(resnet.BasicBlock if bn else BasicBlockNoBN, [2, 2, 2, 2], finetune=finetune, **kwargs)
     if load:
         print("Loading dict from modelzoo..")
-        model.load_state_dict(model_zoo.load_url(resnet.model_urls['resnet18']), strict=False)
+        model.load_state_dict(torch.hub.load_state_dict_from_url(resnet.ResNet18_Weights.DEFAULT.url), strict=False)
 
         for layer in model.layer3:
             layer.conv1.reset_parameters()

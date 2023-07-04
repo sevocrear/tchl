@@ -1,4 +1,4 @@
-from convlstm_net.resnet_plus_lstm import resnet18rnn
+from resnet_plus_lstm import resnet18rnn
 from utilities.tee import Tee
 from kitti_horizon.kitti_horizon_torch import KITTIHorizon
 from utilities.losses import calc_horizon_leftright
@@ -19,7 +19,7 @@ import argparse
 import contextlib
 import math
 np.seterr(all='raise')
-
+import cv2
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--load', default=None, type=str, help='path to NN model weights')
 parser.add_argument('--results', default="./tmp/results", type=str, help='path to store results in')
@@ -61,7 +61,7 @@ whole_sequence = args.whole_sequence
 baseline_angle = 0.013490
 baseline_offset = -0.036219
 
-csv_base = "./kitti_horizon/split/"
+csv_base = "convlstm_net/kitti_horizon/split"
 
 if args.load is not None:
     model = resnet18rnn(use_fc=args.fc,
@@ -149,6 +149,7 @@ with torch.no_grad():
     for idx, sample in enumerate(loader):
 
         images = sample['images']
+        print(images.shape)
         offsets = sample['offsets']
         angles = sample['angles']
         Gs = sample['G'][0]
@@ -254,7 +255,7 @@ with torch.no_grad():
                     estm_h2 = np.cross(estm_hl, np.array([1, 0, -width]))
                     estm_h1 /= estm_h1[2]
                     estm_h2 /= estm_h2[2]
-
+                    cv2.imwrite(f"images/image_{image_count}.png", image.copy()*255.)
                     h1_ = estm_h1 / scale - np.array([padding[0], padding[2], 1 / scale - 1])
                     h2_ = estm_h2 / scale - np.array([padding[0], padding[2], 1 / scale - 1])
                     h_ = np.cross(h1_, h2_)
@@ -273,7 +274,7 @@ with torch.no_grad():
                         err = err2
 
                     all_errors.append(err)
-                    all_errors_per_sequence.append(err)
+                    all_errors_per_sequence.append(float(err))
 
                 if args.video:
                     image[:,:,0] += pixel_mean[0]

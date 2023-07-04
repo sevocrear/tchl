@@ -57,3 +57,15 @@ For the single-frame baseline, run:
 python convlstm_net/evaluate.py --whole --cpu --load single_frame.ckpt --set test --dataset_path PATH_TO_PREPROCESSED_DATASET
 ```
 
+## Testing
+In order to test on the sequence of images:
+
+### Temporally Consistent CNN
+```
+python convlstm_net/test.py --cpu  --skip --convlstm --load models/temporally_consistent.ckpt --image_path images --whole --res_dir results_lstm
+```
+
+### Single-frame baseline
+```
+python convlstm_net/test.py --cpu --load models/single_frame.ckpt --seqlength 90 --image_path images --whole --res_dir results_single
+```
