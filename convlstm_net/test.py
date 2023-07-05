@@ -22,6 +22,15 @@ import cv2
 np.seterr(all='raise')
 from glob import glob
 
+def img_preprocess(image, args, pixel_mean):
+    image = image.copy()
+    image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1).astype(np.float32)
+    image /= 255.
+    image[:,:,0] -= pixel_mean[0]
+    image[:,:,1] -= pixel_mean[1]
+    image[:,:,2] -= pixel_mean[2]
+    image = np.transpose(image, [2, 0, 1])
+    return image
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--load', default=None, type=str, help='path to NN model weights')
 parser.add_argument('--seqlength', default=10000, type=int, help='maximum frames per sequence')
@@ -80,8 +89,7 @@ else:
     model = None
 
 # IMG PIXEL MEAN
-pixel_mean = [0.0, 0.0, 0.0]
-
+pixel_mean = [0.56518207, 0.54235874, 0.54569441]
 
 # FUNCTION TO CALCULATE HORIZON LINE Y-s
 calc_hlr = calc_horizon_leftright(args.image_width, args.image_height)
@@ -101,8 +109,8 @@ with torch.no_grad():
         for idx, image in enumerate(imgs[:seq_length]):
             image = cv2.imread(image)
             image_shape_orig = image.shape
-            image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1)
-            image = np.transpose(image, [2, 0, 1])/255.
+            image = img_preprocess(image, args, pixel_mean)
+            
             images[idx,:,:,:] = image
         fps = args.fps
     elif args.input_src == "video":
@@ -121,15 +129,14 @@ with torch.no_grad():
             if not ret:
                 break
             image_shape_orig = image.shape
-            image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1)
-            image = np.transpose(image, [2, 0, 1])/255.
+            image = img_preprocess(image, args, pixel_mean)
             images[idx,:,:,:] = image
             idx += 1
         
             
     # Prepare video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out_video = cv2.VideoWriter(os.path.join(args.res_dir,'result.mp4'), fourcc, fps, (image_shape_orig[1], image_shape_orig[0]))
+    out_video = cv2.VideoWriter(os.path.join(args.res_dir,f'result{len(glob(os.path.join(args.res_dir, "*.mp4")))}.mp4'), fourcc, fps, (image_shape_orig[1], image_shape_orig[0]))
     
     # Process images
     images = torch.tensor(images).unsqueeze(0)
@@ -144,9 +151,11 @@ with torch.no_grad():
             break
         image = images.numpy()[0,si,:,:,:].transpose((1,2,0))
         image_draw = image.copy()
+        
         image_draw[:,:,0] += pixel_mean[0]
         image_draw[:,:,1] += pixel_mean[1]
         image_draw[:,:,2] += pixel_mean[2]
+
         image_draw *= 255.
         
         width = image.shape[1]
@@ -184,7 +193,8 @@ with torch.no_grad():
                 estm_h2 /= estm_h2[2]
                 estm_h1 = estm_h1.astype(int)
                 estm_h2 = estm_h2.astype(int)
-                cv2.line(image_draw, (estm_h1[0], estm_h1[1]), (estm_h2[0], estm_h2[1]), color = (255, 255, 255), thickness = 3)
+                cv2.line(image_draw, (estm_h1[0], estm_h1[1]), (estm_h2[0], estm_h2[1]), color = (255, 255, 255), thickness = 1)
+                cv2.line(image_draw, (0, int((estm_h1[1]+estm_h2[1])/2)), (estm_h2[0], int((estm_h1[1]+estm_h2[1])/2)), color = (255, 0, 255), thickness = 1)
                 img_to_save = cv2.resize(image_draw, (image_shape_orig[1], image_shape_orig[0]), interpolation = 1)
                 cv2.imwrite(os.path.join(args.res_dir,f'out_{si}.png'), img_to_save)
                 out_video.write(img_to_save.astype(np.uint8))

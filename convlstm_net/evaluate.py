@@ -48,6 +48,9 @@ set_type = args.set
 if not os.path.exists(args.results):
     os.makedirs(args.results)
 
+if not os.path.exists("images"):
+    os.makedirs("images")
+    
 os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 if args.cpu:
@@ -149,7 +152,6 @@ with torch.no_grad():
     for idx, sample in enumerate(loader):
 
         images = sample['images']
-        print(images.shape)
         offsets = sample['offsets']
         angles = sample['angles']
         Gs = sample['G'][0]
