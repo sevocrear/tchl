@@ -31,9 +31,16 @@ export PYTHONPATH=./
 
 You can download the pre-trained model weights here:
 * [Temporally consistent ConvLSTM CNN](https://cloud.tnt.uni-hannover.de/index.php/s/qZaD0cvk9DwGcbk)
+```
+wget https://cloud.tnt.uni-hannover.de/index.php/s/qZaD0cvk9DwGcbk/download/temporally_consistent.ckpt
+```
 * [Single-frame baseline](https://cloud.tnt.uni-hannover.de/index.php/s/BrKMoVXOROhQSPN)
+```
+wget https://cloud.tnt.uni-hannover.de/index.php/s/BrKMoVXOROhQSPN/download/single_frame.ckpt
+```
 * [Non-temporal (ablation study)](https://cloud.tnt.uni-hannover.de/index.php/s/38Tnb9E1Yh7Ye8q)
 * [Naïve residual (ablation study)](https://cloud.tnt.uni-hannover.de/index.php/s/2rOJUtScXfCXvkG)
+
 
 ## Training
 
@@ -62,10 +69,10 @@ In order to test on the sequence of images:
 
 ### Temporally Consistent CNN
 ```
-python convlstm_net/test.py --cpu  --skip --convlstm --load models/temporally_consistent.ckpt --image_path images --whole --res_dir results_lstm
+python convlstm_net/test.py --cpu  --skip --convlstm --load models/temporally_consistent.ckpt --source_path images --whole --res_dir results_lstm
 ```
 
 ### Single-frame baseline
 ```
-python convlstm_net/test.py --cpu --load models/single_frame.ckpt --seqlength 90 --image_path images --whole --res_dir results_single
+python convlstm_net/test.py --cpu --load models/single_frame.ckpt --seqlength 90 --source_path images --whole --res_dir results_single
 ```

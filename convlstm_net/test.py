@@ -36,10 +36,12 @@ parser.add_argument('--meanmodel', dest='meanmodel', action='store_true', help='
 parser.add_argument('--simple_skip', dest='simple_skip', action='store_true', help='naive skip connection')
 parser.add_argument('--image_width', default=625, type=int, help='image width')
 parser.add_argument('--image_height', default=190, type=int, help='image height')
-parser.add_argument('--image_path', default="image.png", type=str, help='image path')
+parser.add_argument('--source_path', default="images", type=str, help='source path. Dir for images; video file')
+parser.add_argument('--input_src', default="image", type=str, help='video or image')
 parser.add_argument('--whole', dest='whole_sequence', action='store_true', help='process whole sequence at once')
 parser.add_argument('--res_dir', default = "results", type=str, help='dir to save imgs and video to')
 parser.add_argument('--fps', default =5, type=int, help='fps of the video to be saved')
+parser.add_argument('--max_length', default =100, type=int, help='max length of source to be processed')
 args = parser.parse_args()
 
 # CREATE DIRECTORY FOR RESULTS
@@ -78,31 +80,56 @@ else:
     model = None
 
 # IMG PIXEL MEAN
-pixel_mean = [0.362365, 0.377767, 0.366744]
+pixel_mean = [0.0, 0.0, 0.0]
 
 
 # FUNCTION TO CALCULATE HORIZON LINE Y-s
 calc_hlr = calc_horizon_leftright(args.image_width, args.image_height)
 
 with torch.no_grad():
-    imgs = glob(os.path.join(args.image_path, "*.png")) + glob(os.path.join(args.image_path, "*.jpg"))
-    imgs = sorted(imgs)
+    print('pack frames into an array')
+    if args.input_src == "image":
+        imgs = glob(os.path.join(args.source_path, "*.png")) + glob(os.path.join(args.source_path, "*.jpg"))
+        imgs = sorted(imgs)
+        
+        # Choose sequence_length (should be less than number of images)
+        seq_length = min(len(imgs), seq_length)
     
-    # Choose sequence_length (should be less than number of images)
-    seq_length = min(len(imgs), seq_length)
-    
-    # Pack images into Numpy Array
-    images = np.zeros((seq_length, 3, args.image_height, args.image_width)).astype(np.float32)
-    for idx, image in enumerate(imgs[:seq_length]):
-        image = cv2.imread(image)
-        image_shape_orig = image.shape
-        image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1)
-        image = np.transpose(image, [2, 0, 1])/255.
-        images[idx,:,:,:] = image
-    
+        # Pack images into Numpy Array
+        images = np.zeros((seq_length, 3, args.image_height, args.image_width)).astype(np.float32)
+        
+        for idx, image in enumerate(imgs[:seq_length]):
+            image = cv2.imread(image)
+            image_shape_orig = image.shape
+            image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1)
+            image = np.transpose(image, [2, 0, 1])/255.
+            images[idx,:,:,:] = image
+        fps = args.fps
+    elif args.input_src == "video":
+        cap = cv2.VideoCapture(args.source_path)
+        rep, image = cap.read()
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        seq_length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        # Pack images into Numpy Array
+        images = np.zeros((seq_length, 3, args.image_height, args.image_width)).astype(np.float32)
+        
+        idx = 0
+        while (cap.isOpened() and idx <= args.max_length):
+            ret, image = cap.read()
+            if not ret:
+                break
+            image_shape_orig = image.shape
+            image = cv2.resize(image, (args.image_width, args.image_height), interpolation =1)
+            image = np.transpose(image, [2, 0, 1])/255.
+            images[idx,:,:,:] = image
+            idx += 1
+        
+            
     # Prepare video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out_video = cv2.VideoWriter(os.path.join(args.res_dir,'result.mp4'), fourcc, args.fps, (image_shape_orig[1], image_shape_orig[0]))
+    out_video = cv2.VideoWriter(os.path.join(args.res_dir,'result.mp4'), fourcc, fps, (image_shape_orig[1], image_shape_orig[0]))
     
     # Process images
     images = torch.tensor(images).unsqueeze(0)
@@ -113,7 +140,8 @@ with torch.no_grad():
 
     # Calculate horizons for the sequence
     for si in range(images.shape[1]):
-
+        if si > args.max_length:
+            break
         image = images.numpy()[0,si,:,:,:].transpose((1,2,0))
         image_draw = image.copy()
         image_draw[:,:,0] += pixel_mean[0]
@@ -160,8 +188,7 @@ with torch.no_grad():
                 img_to_save = cv2.resize(image_draw, (image_shape_orig[1], image_shape_orig[0]), interpolation = 1)
                 cv2.imwrite(os.path.join(args.res_dir,f'out_{si}.png'), img_to_save)
                 out_video.write(img_to_save.astype(np.uint8))
-                print(estm_h1, estm_h2)
-                print(yle,yre)
+                print(f'Processed {si} frame')
 out_video.release()
 
                 
